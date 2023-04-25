@@ -154,13 +154,13 @@ UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource
 	///   - safe: `true` to return nil if path is invalid, `false` to perform an unchecked retrive.
 	/// - Returns: model
 	public func item(at indexPath: IndexPath, safe: Bool = true) -> ModelProtocol? {
-		guard safe else { return self.sections[indexPath.section].models[indexPath.item] }
+        guard safe else { return self.sections[safe: indexPath.section]?.models[safe: indexPath.item] }
 		
-		guard indexPath.section < self.sections.count else { return nil }
-		let section = self.sections[indexPath.section]
+		guard indexPath.section < self.sections.count,
+              let section = self.sections[safe: indexPath.section] else { return nil }
 		
 		guard indexPath.item < section.models.count else { return nil }
-		return section.models[indexPath.item]
+        return section.models[safe: indexPath.item]
 	}
 	
 	/// Reload collection.
@@ -312,7 +312,7 @@ UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource
 	/// - Returns: section instance if index is valid, `nil` otherwise.
 	public func section(at index: Int) -> CollectionSection? {
 		guard index < self.sections.count else { return nil }
-		return self.sections[index]
+        return self.sections[safe: index]
 	}
 	
 	/// Get the first section if exists.
@@ -336,8 +336,8 @@ UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource
 	///
 	/// - Parameter index: index path of the item.
 	/// - Returns: context
-	internal func context(forItemAt index: IndexPath) -> (ModelProtocol,AbstractAdapterProtocolFunctions) {
-		let item: ModelProtocol = self.sections[index.section].models[index.row]
+	internal func context(forItemAt index: IndexPath) -> (ModelProtocol,AbstractAdapterProtocolFunctions)? {
+        guard let item: ModelProtocol = self.sections[safe: index.section]?.models[safe: index.row] else { return nil }
 		let modelID = String(describing: type(of: item.self))
 		guard let adapter = self.adapters[modelID] else {
 			fatalError("Failed to found an adapter for \(modelID)")
@@ -356,7 +356,7 @@ UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource
 	internal func adapters(forIndexPath paths: [IndexPath]) -> [PrefetchModelsGroup] {
 		var list: [String: PrefetchModelsGroup] = [:]
 		paths.forEach { indexPath in
-			let model = self.sections[indexPath.section].models[indexPath.item]
+            guard let model = self.sections[safe: indexPath.section]?.models[safe: indexPath.item] else { return }
 			let modelID = String(describing: type(of: model.self))
 			
 			var context: PrefetchModelsGroup? = list[modelID]
@@ -381,18 +381,18 @@ public extension CollectionDirector {
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-		return self.sections[section].models.count
+        return self.sections[safe: section]?.models.count ?? 0
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return UICollectionViewCell() }
 		let cell = adapter._instanceCell(in: collectionView, at: indexPath)
 		adapter.dispatch(.dequeue, context: InternalContext.init(model, indexPath, cell, collectionView))
 		return cell
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.willDisplay, context: InternalContext.init(model, indexPath, cell, collectionView))
 	}
 	
@@ -404,37 +404,37 @@ public extension CollectionDirector {
 
 	
 	func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.didSelect, context: InternalContext.init(model, indexPath, nil, collectionView))
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.didDeselect, context: InternalContext.init(model, indexPath, nil, collectionView))
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.shouldSelect, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? true)
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, shouldDeselectItemAt indexPath: IndexPath) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.shouldDeselect, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? true)
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.shouldHighlight, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? true)
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.didHighlight, context: InternalContext.init(model, indexPath, nil, collectionView))
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.didUnhighlight, context: InternalContext.init(model, indexPath, nil, collectionView))
 	}
 	
@@ -460,28 +460,28 @@ public extension CollectionDirector {
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, shouldShowMenuForItemAt indexPath: IndexPath) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return false }
 		return ((adapter.dispatch(.shouldShowEditMenu, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? false)
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, canPerformAction action: Selector, forItemAt indexPath: IndexPath, withSender sender: Any?) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.canPerformEditAction, context: InternalContext.init(model, indexPath, nil, collectionView, param1: action, param2: sender)) as? Bool) ?? true)
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, performAction action: Selector, forItemAt indexPath: IndexPath, withSender sender: Any?) {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return }
 		adapter.dispatch(.performEditAction, context: InternalContext.init(model, indexPath, nil, collectionView, param1: action, param2: sender))
 	}
 	
 	public func collectionView(_ collectionView: UICollectionView, canFocusItemAt indexPath: IndexPath) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.canFocus, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? true)
 	}
 	
 	@available(iOS 11.0, *)
 	public func collectionView(_ collectionView: UICollectionView, shouldSpringLoadItemAt indexPath: IndexPath, with context: UISpringLoadedInteractionContext) -> Bool {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return true }
 		return ((adapter.dispatch(.shouldSpringLoad, context: InternalContext.init(model, indexPath, nil, collectionView)) as? Bool) ?? true)
 	}
 	
@@ -499,17 +499,17 @@ public extension CollectionDirector {
 	}
 	
 	func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-		let section = sections[indexPath.section]
+        let section = sections[safe: indexPath.section]
 		
 		var identifier: String!
 		
 		switch kind {
         case UICollectionView.elementKindSectionHeader:
-			guard let header = section.header else { return UICollectionReusableView() }
+			guard let header = section?.header else { return UICollectionReusableView() }
 			identifier = self.reusableRegister.registerHeaderFooter(header, type: kind)
 			
         case UICollectionView.elementKindSectionFooter:
-			guard let footer = section.footer else { return UICollectionReusableView() }
+			guard let footer = section?.footer else { return UICollectionReusableView() }
 			identifier = self.reusableRegister.registerHeaderFooter(footer, type: kind)
 			
 		default:
@@ -525,11 +525,11 @@ public extension CollectionDirector {
 		
 		switch elementKind {
         case UICollectionView.elementKindSectionHeader:
-			let header = (sections[indexPath.section].header as? AbstractCollectionHeaderFooterItem)
+            let header = (sections[safe: indexPath.section]?.header as? AbstractCollectionHeaderFooterItem)
 			let _ = header?.dispatch(.willDisplay, type: .header, view: view, section: indexPath.section, collection: collectionView)
 			self.on.willDisplayHeader?( (view,indexPath,collectionView) )
         case UICollectionView.elementKindSectionFooter:
-			let footer = (sections[indexPath.section].footer as? AbstractCollectionHeaderFooterItem)
+            let footer = (sections[safe: indexPath.section]?.footer as? AbstractCollectionHeaderFooterItem)
 			let _ = footer?.dispatch(.willDisplay, type: .footer, view: view, section: indexPath.section, collection: collectionView)
 			self.on.willDisplayFooter?( (view,indexPath,collectionView) )
 		default:
@@ -542,11 +542,11 @@ public extension CollectionDirector {
 		
 		switch elementKind {
         case UICollectionView.elementKindSectionHeader:
-			let header = (sections[indexPath.section].header as? AbstractCollectionHeaderFooterItem)
+            let header = (sections[safe: indexPath.section]?.header as? AbstractCollectionHeaderFooterItem)
 			let _ = header?.dispatch(.endDisplay, type: .header, view: view, section: indexPath.section, collection: collectionView)
 			self.on.endDisplayHeader?( (view,indexPath,collectionView) )
         case UICollectionView.elementKindSectionFooter:
-			let footer = (sections[indexPath.section].footer as? AbstractCollectionHeaderFooterItem)
+            let footer = (sections[safe: indexPath.section]?.footer as? AbstractCollectionHeaderFooterItem)
 			let _ = footer?.dispatch(.endDisplay, type: .footer, view: view, section: indexPath.section, collection: collectionView)
 			self.on.endDisplayFooter?( (view,indexPath,collectionView) )
 		default:
