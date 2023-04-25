@@ -118,7 +118,7 @@ open class FlowCollectionDirector: CollectionDirector, UICollectionViewDelegateF
 	//MARK: UICollectionViewDelegateFlowLayout Events
 	
 	open func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-		let (model,adapter) = self.context(forItemAt: indexPath)
+        guard let (model,adapter) = self.context(forItemAt: indexPath) else { return .zero }
 		switch self.itemSize {
 		case .default:
 			guard let size = adapter.dispatch(.itemSize, context: InternalContext(model, indexPath, nil, collectionView)) as? CGSize else {
